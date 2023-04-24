@@ -1,0 +1,15 @@
+[Unit]
+Description=Nginx RTMP running KS CT
+After=network.target docker.service
+
+[Service]
+User=ec2-user
+Restart=always
+ExecStartPre=/usr/local/bin/pre-start.sh
+ExecStart=/usr/bin/docker run --name nginx-rtmp --restart=always 215371600831.dkr.ecr.af-south-1.amazonaws.com/nginx-rtmp:latest
+ExecStop=/usr/bin/docker stop nginx-rtmp
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
