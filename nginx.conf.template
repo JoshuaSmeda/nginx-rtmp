@@ -1,0 +1,93 @@
+worker_processes 2;
+
+events {
+  worker_connections  1024;
+}
+
+rtmp {
+  server {
+    listen 1935; # Listen on standard RTMP port
+    chunk_size 4000;
+
+    # This application is to accept incoming stream
+    application source {
+      live on; # Allows live input
+      exec_options on;
+      exec_static ffmpeg -i "rtmp://${STREAM_URL}?channel=0&stream=0&user=${RTMP_USER}&password=${RTMP_PASSWORD}" -codec copy -f flv rtmp://localhost/hls-show/kitecam;
+    }
+
+    # HLS component
+    application hls-show {
+      live on; # Allows live input from above application
+      deny play all; # disable consuming the stream from nginx as rtmp
+
+      hls on; # Enable HTTP Live Streaming
+      hls_fragment 5;
+      hls_playlist_length 10;
+      hls_path /mnt/hls/; # hls fragments path
+    }
+  }
+}
+
+
+http {
+	directio 512;
+	aio on;
+	sendfile on;
+	sendfile_max_chunk 512k;
+	tcp_nopush on;
+	tcp_nodelay on;
+	keepalive_requests 30;
+	client_body_timeout 15;
+	client_header_timeout 15;
+	limit_conn_zone $binary_remote_addr zone=addr:10m;
+	keepalive_timeout 15;
+
+	# HTTP server required to serve the player and HLS fragments
+	server {
+		listen 8000;
+
+		# Serve HLS fragments
+		location /hls {
+			keepalive_requests 30;
+			limit_conn addr 1;
+			types {
+				application/vnd.apple.mpegurl m3u8;
+				video/mp2t ts;
+			}
+
+			root /mnt;
+
+			add_header Cache-Control no-cache; # Disable cache
+
+			# CORS setup
+			add_header 'Access-Control-Allow-Origin' 'https://kitesurfcapetown.co.za' always;
+			add_header 'Access-Control-Expose-Headers' 'Content-Length';
+
+			# allow CORS preflight requests
+			if ($request_method = 'OPTIONS') {
+				add_header 'Access-Control-Allow-Origin' 'https://kitesurfcapetown.co.za';
+				add_header 'Access-Control-Max-Age' 1728000;
+				add_header 'Content-Type' 'text/plain charset=UTF-8';
+				add_header 'Content-Length' 0;
+				return 204;
+			}
+		}
+
+		# This URL provides stub status
+		location /status {
+			stub_status;
+		}
+
+		# This URL provides RTMP statistics in XML
+		location /stat {
+			rtmp_stat all;
+			rtmp_stat_stylesheet stat.xsl; # Use stat.xsl stylesheet
+		}
+
+		location /stat.xsl {
+			# XML stylesheet to view RTMP stats.
+			root /usr/local/nginx/html;
+		}
+	}
+}
