@@ -2,7 +2,7 @@ name: "Build and push to AWS ECR"
 on:
   push:
     branches:
-    - main
+    - master
   pull_request:
 jobs:
   BuildAndPushImageToECR:
