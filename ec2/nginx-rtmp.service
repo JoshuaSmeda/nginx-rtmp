@@ -1,12 +1,16 @@
 [Unit]
 Description=Nginx RTMP running KS CT
+Requires=docker.service
 After=network.target docker.service
 
 [Service]
+TimeoutStartSec=0
 User=ec2-user
 Restart=always
-ExecStartPre=/usr/local/bin/pre-start.sh
-ExecStart=/usr/bin/docker run --name nginx-rtmp --restart=always 215371600831.dkr.ecr.af-south-1.amazonaws.com/nginx-rtmp:latest
+ExecStartPre=-/usr/bin/docker stop nginx-rtmp
+ExecStartPre=-/usr/bin/docker rm nginx-rtmp
+RestartSec=10s
+ExecStart=/usr/bin/docker run --name nginx-rtmp --restart=always -p 0.0.0.0:8000:8000 215371600831.dkr.ecr.af-south-1.amazonaws.com/nginx-rtmp
 ExecStop=/usr/bin/docker stop nginx-rtmp
 StandardOutput=journal
 StandardError=journal
